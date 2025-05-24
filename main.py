@@ -1,9 +1,11 @@
-# main.py - Updated
+# main.py - Streamlined Interface
 
 import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler, ConversationHandler
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler
 import module # Import our workflow module
+import json # For pretty printing user_data
+from telegram.helpers import escape_markdown # Import escaping utility
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -15,13 +17,9 @@ BOT_TOKEN = "7959455833:AAFuOGqw_PGOBVg-VPyvsHPPabWc_dTmcGw" # !!! REMEMBER TO R
 # Path to the JSON workflow file
 WORKFLOW_FILE = "workflow_config.json" # Assuming the sample JSON is saved here
 
-# --- Load Workflow ---
-workflow_data = module.load_workflow_data(WORKFLOW_FILE)
-if not workflow_data:
-    logger.error("Failed to load workflow data. Exiting.")
-    exit()
-
-workflow_manager = module.WorkflowManager(workflow_data)
+# --- Initialize Workflow Manager ---
+# WorkflowManager now loads the data itself
+workflow_manager = module.InlineWorkflowManager(WORKFLOW_FILE)
 
 # --- Command Handlers ---
 
@@ -30,91 +28,104 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.effective_chat.id
     logger.info(f"User {chat_id} started the workflow.")
 
-    # Reset user state and get the initial step keyboard and text
-    workflow_manager.reset_user_state(chat_id)
-    reply_markup, text = workflow_manager.generate_keyboard_and_text(chat_id)
+    # Call the manager's start method
+    reply_markup, text = workflow_manager.start_workflow(context)
 
-    if reply_markup and text:
-        # Send the initial message
-        await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
+    if reply_markup is not None and text is not None: # Check if manager returned UI
+        await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode='MarkdownV2')
+    elif text is not None: # Manager might return only error text on init failure
+         await context.bot.send_message(chat_id=chat_id, text=text, parse_mode='MarkdownV2')
     else:
-        await context.bot.send_message(chat_id=chat_id, text="Error starting workflow.")
+         # Should ideally not happen if text is returned on init failure
+         await context.bot.send_message(chat_id=chat_id, text=escape_markdown("An unexpected error occurred starting the workflow.", version=2), parse_mode='MarkdownV2')
+
 
 async def show_selections(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Shows the user's current selections (for debugging/demonstration)."""
     chat_id = update.effective_chat.id
-    selections = workflow_manager.get_user_selections(chat_id)
-    if selections:
-        text = "Your current selections:\n"
-        for step, value in selections.items():
-            text += f"- {step}: {value}\n"
-    else:
-        text = "No selections made yet."
+    selections = workflow_manager.get_user_selections(context)
 
-    await context.bot.send_message(chat_id=chat_id, text=text)
+    # Log user data for debugging
+    logger.info(f"User {chat_id} context.user_data: {json.dumps(context.user_data, indent=2)}")
+
+
+    if selections:
+        # Escape the introductory text, JSON dump should be fine in ```json block
+        intro_text = escape_markdown("Your current selections:", version=2)
+        selections_json_str = json.dumps(selections, indent=2)
+
+        text = f"{intro_text}\n```json\n{selections_json_str}\n```"
+    else:
+        text = escape_markdown("No selections made yet.", version=2)
+
+    # Send with MarkdownV2 parse mode
+    await context.bot.send_message(chat_id=chat_id, text=text, parse_mode='MarkdownV2')
+
 
 # --- Callback Query Handler ---
 
 async def handle_button_click(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handles button clicks from the inline keyboard."""
     query = update.callback_query
-    await query.answer() # Acknowledge the callback query
+    # Always answer the query, regardless of processing outcome
+    await query.answer()
 
-    # Corrected: Get chat_id from query.message
     chat_id = query.message.chat.id
     callback_data = query.data
     logger.info(f"User {chat_id} clicked button with data: {callback_data}")
 
-    # Process the callback data using the WorkflowManager
-    # handle_callback_query now returns the step key to render *after* processing
-    next_step_key, current_step_key_before_change, processed_value, is_workflow_end = workflow_manager.handle_callback_query(chat_id, callback_data)
+    # Call the manager's method to process the click and get the response UI/text
+    response_text, reply_markup, is_final_message = workflow_manager.process_callback_and_get_response(context, callback_data)
 
-    if is_workflow_end:
-        # Workflow finished
-        final_selections = workflow_manager.get_user_selections(chat_id)
-        summary_text = "Workflow completed! Here are your selections:\n"
-        for step, value in final_selections.items():
-             summary_text += f"- {step}: {value}\n"
-        # Optionally reset state after showing summary if you want a clean start next time
-        # workflow_manager.reset_user_state(chat_id)
+    # Log user data after processing callback
+    logger.info(f"User {chat_id} context.user_data AFTER callback: {json.dumps(context.user_data, indent=2)}")
 
-        # Edit the message to show the summary and remove the keyboard
-        await query.edit_message_text(text=summary_text, reply_markup=None)
-        logger.info(f"User {chat_id} workflow completed.")
+
+    # Based on the response from the manager, edit the message
+    if is_final_message:
+        # Workflow finished or encountered a critical error ending the workflow
+        try:
+            await query.edit_message_text(text=response_text, reply_markup=reply_markup, parse_mode='MarkdownV2')
+            logger.info(f"User {chat_id}: Final/Error message edited.")
+        except Exception as e:
+            logger.warning(f"User {chat_id}: Failed to edit message to show final/error state: {e}. Sending new message instead.")
+            # Fallback: send a new message. Ensure parse_mode is correct.
+            await context.bot.send_message(chat_id=chat_id, text=response_text, reply_markup=reply_markup, parse_mode='MarkdownV2')
 
     else:
-        # Workflow continues or user stayed on same step (radio/checkbox/toggle/manual completion step)
-        # Generate the keyboard and text for the step determined by handle_callback_query
-        reply_markup, text = workflow_manager.generate_keyboard_and_text(chat_id)
+        # Workflow is ongoing (either moved to next step, stayed on current, or got validation error)
+        # response_text will contain the description or error message (already escaped)
+        # reply_markup will contain the keyboard for the next/current step
 
-        if reply_markup and text:
-             # Edit the message to update the keyboard and text for the next/current step
+        if reply_markup is not None: # If there is a keyboard to show
              try:
-                 # Check if the message content actually changed to avoid API errors
-                 # This is a basic check, a more robust check might compare reply_markup and text
-                 if query.message.reply_markup != reply_markup or query.message.text != text:
-                    await query.edit_message_text(text=text, reply_markup=reply_markup)
-                    logger.debug(f"User {chat_id}: Edited message for step '{workflow_manager._get_user_state(chat_id)['current_step']}'.")
-                 else:
-                    logger.debug(f"User {chat_id}: Message content unchanged for step '{workflow_manager._get_user_state(chat_id)['current_step']}'. No edit needed.")
-
+                 # Edit the message to update the keyboard and text
+                 await query.edit_message_text(text=response_text, reply_markup=reply_markup, parse_mode='MarkdownV2')
+                 logger.debug(f"User {chat_id}: Edited message for next step.")
              except Exception as e:
-                 logger.warning(f"User {chat_id}: Failed to edit message: {e}. Message might be too old or not modified.")
-                 # As a fallback, you could send a new message, but be aware of chat clutter.
-                 # await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
-        elif text:
-             # Only text changed (less likely with keyboard-driven steps)
-             await query.edit_message_text(text=text)
-             logger.debug(f"User {chat_id}: Edited message text.")
-        else:
-             # Should ideally not happen if generate_keyboard_and_text works correctly for a valid step_key
-             logger.error(f"User {chat_id}: generate_keyboard_and_text returned None for step '{workflow_manager._get_user_state(chat_id)['current_step']}'.")
+                 logger.warning(f"User {chat_id}: Failed to edit message for next step (might not be modified or too old): {e}.")
+                 # Optional fallback: send a new message.
+                 # await context.bot.send_message(chat_id=chat_id, text=response_text, reply_markup=reply_markup, parse_mode='MarkdownV2')
+        else: # If no keyboard is returned (unlikely in this design unless a step has no buttons)
+              try:
+                 # Edit message text only, removing the keyboard if it was present
+                 await query.edit_message_text(text=response_text, reply_markup=None, parse_mode='MarkdownV2')
+                 logger.debug(f"User {chat_id}: Edited message text only.")
+              except Exception as e:
+                 logger.warning(f"User {chat_id}: Failed to edit message text only: {e}.")
+                 # Fallback: send a new message
+                 await context.bot.send_message(chat_id=chat_id, text=response_text, parse_mode='MarkdownV2')
 
 
 # --- Main Application Setup ---
 
 def main():
     """Runs the bot."""
+    # Check if workflow manager initialized successfully
+    if not workflow_manager.is_initialized:
+        logger.error("Workflow manager failed to load data. Bot cannot start.")
+        exit()
+
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
     # Add handlers

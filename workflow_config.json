@@ -10,26 +10,25 @@
         [
           { "buttonName": "Clothing & Apparel", "value": "clothing" }
         ]
-      ],
-      "backButton": { "buttonName": "⬅️ Go Back", "action": "back" }
+      ]
     },
     "step_2_radio_example": {
-      "description": "Choose one option from this group.",
+      "description": "Choose one option from each group.",
       "completionType": "manual",
       "options": [
         [
-          { "buttonName": "Option A (Radio 1)", "value": "radio_a", "type": "radio", "radioGroup": "choice_group_1" },
-          { "buttonName": "Option B (Radio 1)", "value": "radio_b", "type": "radio", "radioGroup": "choice_group_1" }
+          { "buttonName": "Size: Small", "value": "size_s", "type": "radio", "radioGroup": "size" },
+          { "buttonName": "Size: Medium", "value": "size_m", "type": "radio", "radioGroup": "size" },
+          { "buttonName": "Size: Large", "value": "size_l", "type": "radio", "radioGroup": "size" }
         ],
         [
-           { "buttonName": "Option C (Radio 1)", "value": "radio_c", "type": "radio", "radioGroup": "choice_group_1" },
-           { "buttonName": "Another Group Opt (Radio 2)", "value": "radio_d", "type": "radio", "radioGroup": "choice_group_2" }
+           { "buttonName": "Color: Red", "value": "color_red", "type": "radio", "radioGroup": "color" },
+           { "buttonName": "Color: Blue", "value": "color_blue", "type": "radio", "radioGroup": "color" }
         ],
-        [
-           { "buttonName": "Skip Radio Step", "value": "skipped_radio", "type": "skip", "skipSteps": 1 }
-        ]
-      ],
-      "backButton": { "buttonName": "⬅️ Go Back", "action": "back" }
+         [
+           { "buttonName": "Skip Radio Options", "value": "skipped_radio", "type": "skip", "skipSteps": 1 }
+         ]
+      ]
     },
     "step_3_checkbox_example": {
       "description": "Select multiple features you want.",
@@ -42,8 +41,7 @@
         [
            { "buttonName": "Feature Z", "value": "feature_z", "type": "checkbox" }
         ]
-      ],
-      "backButton": { "buttonName": "⬅️ Go Back", "action": "back" }
+      ]
     },
     "step_4_toggle_example": {
       "description": "Adjust a setting.",
@@ -52,8 +50,7 @@
         [
           { "buttonName": "Enable Notifications", "value": "notifications_enabled", "type": "toggle", "initialState": false }
         ]
-      ],
-      "backButton": { "buttonName": "⬅️ Go Back", "action": "back" }
+      ]
     },
      "step_5_optional_config": {
       "description": "Configure optional parameters or skip.",
@@ -65,22 +62,19 @@
         [
            { "buttonName": "Skip Optional Config", "value": "skipped_config", "type": "skip", "skipSteps": 2 }
         ]
-      ],
-      "backButton": { "buttonName": "⬅️ Go Back", "action": "back" }
+      ]
     },
     "step_6_summary_or_next": {
         "description": "You've reached a branching point or review. Proceed to final step.",
         "options": [
              [ { "buttonName": "Go to Final Step", "value": "go_to_final" } ]
-        ],
-        "backButton": { "buttonName": "⬅️ Go Back", "action": "back" }
+        ]
     },
      "step_7_final_step": {
         "description": "This is the final step. Press 'Finish' to see your selections.",
         "options": [
              [ { "buttonName": "✅ Finish Workflow", "value": "finish_workflow", "type": "finish" } ]
-        ],
-        "backButton": { "buttonName": "⬅️ Go Back", "action": "back" }
+        ]
     }
   }
 }
