@@ -4,6 +4,10 @@ Build dynamic, multi-step inline button workflows for your Telegram bot using si
 
 This project provides a Python module (`module.py`) that reads a workflow definition from a JSON file and handles the logic for navigating through steps, managing user selections (radio, checkbox, toggle), and updating the inline keyboard interface in Telegram. A demo bot using `python-telegram-bot` is included (`main.py`).
 
+## Quick Demo
+![Peek 2025-05-25 06-59](https://github.com/user-attachments/assets/940022cb-9dc7-4e92-b3d9-c7980e8840ce)
+
+
 ## ✨ Features
 
 *   **JSON Configuration:** Define your entire workflow structure, steps, buttons, and logic in a single JSON file.
@@ -136,5 +140,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Credits
 
 *   Built with the goat [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot).
-
-```
