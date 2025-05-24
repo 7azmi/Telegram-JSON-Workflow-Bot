@@ -3,7 +3,7 @@
 import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler
-import module # Import our workflow module
+import inline_workflow_manager # Import our workflow module
 import json # For pretty printing user_data
 from telegram.helpers import escape_markdown # Import escaping utility
 
@@ -13,13 +13,13 @@ logger = logging.getLogger(__name__)
 
 # --- Configuration ---
 # Replace with your actual bot token
-BOT_TOKEN = "7959455833:AAFuOGqw_PGOBVg-VPyvsHPPabWc_dTmcGw" # !!! REMEMBER TO REPLACE THIS !!!
+BOT_TOKEN = "Your Token" # !!! REMEMBER TO REPLACE THIS !!!
 # Path to the JSON workflow file
 WORKFLOW_FILE = "workflow_config.json" # Assuming the sample JSON is saved here
 
 # --- Initialize Workflow Manager ---
 # WorkflowManager now loads the data itself
-workflow_manager = module.InlineWorkflowManager(WORKFLOW_FILE)
+workflow_manager = inline_workflow_manager.InlineWorkflowManager(WORKFLOW_FILE)
 
 # --- Command Handlers ---
 
